@@ -1,17 +1,28 @@
-#!/usr/bin/bash
+#!/usr/bin/sh
 
-path="/dev/safety1"
+exec > /tmp/udev.log 2>&1
+date
 
-mount $path /mnt/hd
+path1=`findmnt $1 -o TARGET | awk '/\//{print}'`
+echo $path1
+path2="/home/hash"
 
-t=`cat /mnt/hd/Data/timeout.txt`
+# if [ ! -d "$path1/Data/timeout.txt" ]; then
+#     mkdir -p $path1/Data
+#     touch $path1/Data/timeout.txt
+#     echo 60 > $path1/Data/timeout.txt
+# fi
+# t=`cat $path1/Data/timeout.txt`
 
-x=$((t-2))
+# x=$((t-2))
 
-/usr/bin/date >> /tmp/udev.log
+# timeout -s SIGINT $x bash -c \
+# 'rsync $path2/Data/Take $path2/Data/Received/; \
+# rsync $path2/Data/Send/ $path2/Data/Give/ '
 
-timeout -s SIGINT $x bash -c 'rsync /mnt/hd/Data/Take /home/hash/Data/Received/; rsync /home/hash/Data/Send/ /mnt/hd/Data/Give'
 
-umount $path
+# sleep 10
+
+umount -l $path1
 
 echo done

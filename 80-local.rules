@@ -1,4 +1,0 @@
-ACTION=="add", KERNEL=="sd*1", SUBSYSTEM=="block", ATTRS{idProduct}=="1643" \
-, ATTRS{idVendor}=="0951", ATTRS{serial}=="001CC05FE92CBBC1091D0049", SYMLINK+="safety%n"
-ACTION=="add", KERNEL=="sd*1", SUBSYSTEM=="block", ATTRS{idProduct}=="1643" \
-, ATTRS{idVendor}=="0951", ATTRS{serial}=="001CC05FE92CBBC1091D0049", RUN+="/usr/local/bin/trigger.sh"

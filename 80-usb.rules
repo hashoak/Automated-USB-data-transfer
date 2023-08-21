@@ -1,0 +1,3 @@
+ACTION=="add", KERNEL=="sd[a-z]1", \
+ENV{ID_SERIAL}=="Kingston_DataTraveler_G3_001CC05FE92CBBC1091D0049-0:0", \
+RUN+="/usr/local/bin/trigger.sh /dev/%k"
