@@ -1,0 +1,74 @@
+#!/usr/bin/sh
+
+exec > /tmp/udev.log 2>&1
+echo "============\e[1;32m Process Started \e[0m============"
+echo "Process PID: $$"
+date
+
+s=$(date +%s)
+
+local=LOCAL                         # Directory of local storage
+usb="/mnt/USB"                      # Directory of USB mount point
+conf="$usb/Data/conf"               # Directory of config file
+
+this=$(echo $local | grep -oE "/PC-[1-2]_Data" | cut -c 5)     # This PC's number
+echo "This PC's number: $this"
+
+echo "USB device location: $1"
+echo "Local directory: $local"
+echo "USB directory: $usb"
+
+mkdir -p $usb                       # Create the mount point directory.
+mount $1 $usb/                      # Mount the USB device to the mount point.
+echo "USB device mounted..."
+
+# clamscan -ri --bytecode=yes --bell --leave-temps $usb   # Virus scan on USB
+
+t=$(head -1 $conf)                          # Store the timeout val in variable t.
+[ $t -lt 60 ] && t=60                       # If t<60, make t=60
+t=$(( t - ( $(date +%s) - $s + 10 ) ))   # Removing Virus scan time and 10 seconds buffer.
+echo "Total time: $t"
+
+other=$(( 1 + $this % 2 ))                  # Other PC's number
+
+# To Sync the directories one after another:
+t1=$(du -s "$local/Send" | awk '{print $1}')                # Calc timeout
+t2=$(du -s "$usb/Data/$other-to-$this" | awk '{print $1}')  # according to
+t1=$(( t * t1 / ( t1 + t2 ) ))                              # the size of
+t2=$(( t - t1 ))                                            # the directories.
+echo "Time for first transfer: $t1"
+echo "Time for second transfer: $t2"
+
+while read -r dir ; do                              # Delete the files which
+    if [ -f "$dir" ]; then                          # are successfully
+        rm "$dir"                                   # transferred.
+    else
+        rmdir --ignore-fail-on-non-empty "$dir"     # Remove empty directories.
+    fi
+done < "$usb/Data/$this-to-$other/stat"
+echo > "$usb/Data/$this-to-$other/stat"
+
+statfile="$usb/Data/$other-to-$this/stat"
+
+echo "Transfer stared..."
+# Sync the directories with timeouts t1 and t2.
+timeout $t1 rsync -rzq --partial --append \
+$local/Send/ "$usb/Data/$this-to-$other/"
+timeout $t2 rsync -rzq --partial --append --remove-source-files --out-format="%n" \
+--exclude 'stat' "$usb/Data/$other-to-$this/" $local/Recv/ >> $statfile
+
+if [ $? ]; then                                     # If tranf is stopped in between exclude
+printf "$(head -n -1 $statfile)" > $statfile; fi    # the last file from deletion.
+echo "Transfer done..."
+
+# # To sync both the directories PARALLELLY:
+# timeout $t bash -c 'rsync -azq --partial --append \
+# $local/Send/ "$usb/Data/$this-to-$other" & \
+# rsync -azq --partial --append --remove-source-files \
+# --out-format="%n" "$usb/Data/$other-to-$this"/ $local/Recv > $statfile'
+# echo "Transfer done..."
+
+eject $1                                    # Eject the USB device
+echo "USB device Ejected"
+
+echo "============\e[1;31m Process Done \e[0m============"
