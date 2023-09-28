@@ -1,0 +1,1 @@
+ACTION=="add", KERNEL=="sd[a-z]1", ENV{ID_SERIAL}=="SERIALID", ENV{SYSTEMD_WANTS}+="usb@%k.service"
