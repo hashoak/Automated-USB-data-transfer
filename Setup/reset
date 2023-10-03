@@ -1,0 +1,36 @@
+#!/usr/bin/sh
+
+if [ $USER != "root" ]; then
+    echo "Please run as root"
+    exit 1
+fi
+
+localdir="/home/$SUDO_USER/usb-data"
+usbdir=$(dirname "$(pwd)")
+
+echo "Removing Local directories..."
+if [ ! -z "$(find $localdir/Send/* 2> /dev/null)" ] || \
+[ ! -z "$(find $localdir/Recv/* 2> /dev/null)" ]; then
+    echo "Files present in Local data directory..."
+    echo -n "Delete them? [Y/n] "; read r
+    if [ "$r" != "Y" ] && [ "$r" != "y" ]; then
+        echo "Empty the directory to reset"; exit 0; fi; fi
+rm -rf "$localdir"
+
+echo "Removing USB directories..."
+if [ ! -z "$(find $usbdir/Data/1-to-2/* ! -path '*/todelete' 2> /dev/null)" ] || \
+[ ! -z "$(find $usbdir/Data/2-to-1/* ! -path '*/todelete' 2> /dev/null)" ]; then
+    echo "Files present in USB directory..."
+    echo -n "Delete them? [Y/n] "; read r
+    if [ "$r" != "Y" ] && [ "$r" != "y" ]; then
+        echo "Empty the directory to reset"; exit 0; fi; fi
+rm -rf "$usbdir/Data"
+
+echo "Removing source files..."
+rm -f "/etc/udev/rules.d/99-usb.rules"
+rm -f "/etc/systemd/system/usb@.service"
+rm -f "/usr/local/bin/usb.sh"
+
+echo "Reset Done"
+echo -n "Run setup? [Y/n] "; read r
+if [ "$r" = "Y" ] || [ "$r" = "y" ]; then sh setup; fi
