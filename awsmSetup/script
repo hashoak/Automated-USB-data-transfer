@@ -1,0 +1,109 @@
+#!/usr/bin/sh
+
+s=$(date +%s)                       # Start time
+exec > /tmp/usb.log 2>&1
+echo "=================\e[1;34m Process Started \e[0m================="
+echo "Process PID: $$"
+date
+
+localdir=/home/USER/usb-data        # Directory of local storage
+
+if [ ! -f "$localdir/conf" ] || [ ! -d "$localdir/Send" ] || \
+[ ! -d "$localdir/Recv" ]; then
+    echo "\e[1;31mLocal Directory(s) Inexistent\e[0m"
+    echo "\e[0;33m└─Run setup to create required directories.\e[0m"
+    exit 1; fi
+
+if [ "$(grep -oP "doTransfer=\K.*" "$localdir"/conf)" -eq 0 ]; then
+    echo "\e[1;31mTransfer Stopped: doTransfer=0\e[0m"
+    echo "\e[0;33m└─Set doTransfer to 1.\e[0m"
+    exit 1; fi
+
+this=$(grep -oP "thisPC=\K.*" "$localdir"/conf)     # This PC's number
+echo "This PC's number: $this"
+
+if ! usbdir=$(findmnt -no TARGET $1); then
+    usbdir=/media/USER/usb              # Directory of USB mount point.
+    mkdir -p $usbdir                    # Create the mount point directory.
+    mount $1 $usbdir; fi                # Mount the USB device to the mount point.
+echo "USB device mounted..."
+
+echo "USB device location: $1"
+echo "Local directory: $localdir"
+echo "USB directory: $usbdir"
+
+echo "Running Anti Virus check..."
+clamscan -ri --bell /media/vit/SanDisk              # Virus scan on USB
+
+if [ ! -f "$usbdir/Data/conf" ] || [ ! -d "$usbdir/Data/1-to-2" ] || \
+[ ! -d "$usbdir/Data/2-to-1" ]; then
+    echo "\e[1;31mUSB Directories Inexistent\e[0m"
+    echo "\e[0;33m└─Run setup to create required directories.\e[0m"
+    exit 1; fi
+
+if [ "$(grep -oP "serial=\K.*" "$localdir/conf")" != \
+"$(grep -oP "PC$this=\K.*" "$usbdir/Data/conf")" ]; then
+    echo "\e[1;31mPC Number Mismatch\e[0m"
+    echo "\e[0;33m└─Run setup to change PC numbers.\e[0m"
+    exit 1; fi
+
+other=$(( 1 + this % 2 ))                           # Other PC's number
+
+echo "Deleting successfully sent files..."
+while read -r dir ; do                              # Delete the files which
+    if [ -f "$localdir/Send/$dir" ]; then           # are successfully
+        rm "$localdir/Send/$dir"                    # transferred.
+        echo "$(date +"[%b%d %T]") SENT: $dir" \
+        >> "$localdir/History"; fi                  # Append sent file name
+done < "$usbdir/Data/$this-to-$other/todelete"      # to history.
+find $localdir/Send/* -type d -empty -delete 2> /dev/null
+
+echo "Calculating time intervals..."
+t=120                                               # Store the total timeout
+echo "Total time: $t"                               # time value in variable t.
+[ $t -lt 90 ] && t=90                               # If t<90, make t=90
+t=$(( t - ( $(date +%s) - s + 30 ) ))               # Removing Virus scan time
+echo "Remaining time: $t"                           # and 30 seconds buffer.
+t1=$(du -s "$usbdir/Data/$other-to-$this" | awk '{print $1}')   # Calc timeout
+t2=$(du -s "$localdir/Send" | awk '{print $1}')                 # according to
+t1=$(( t * t1 / ( t1 + t2 ) + 1 ))                              # the size of
+t2=$(( t - t1 + 1 ))                                            # the directories.
+echo "Time for Recv transfer: $t1"
+echo "Time for Send transfer: $t2"
+
+# Sync the directories with timeouts t2 and t1.
+echo "----------------\e[1;32m Receiving Started \e[0m----------------"
+timeout $t1 rsync -ah --progress --modify-window=1 --remove-source-files \
+--exclude 'todelete' "$usbdir/Data/$other-to-$this/" "$localdir/Recv"
+echo "-----------------\e[1;31m Receiving Done \e[0m------------------"
+
+echo "-----------------\e[1;32m Sending Started \e[0m-----------------"
+timeout $t2 rsync -ah --progress --modify-window=1 --no-o --no-g \
+"$localdir/Send/" "$usbdir/Data/$this-to-$other"
+echo "------------------\e[1;31m Sending Done \e[0m-------------------"
+
+sync
+echo "synced"
+find $usbdir/Data/$other-to-$this/* -type d -empty -delete 2> /dev/null
+
+echo "Updating todelete log and receive History..."
+todeletefile="$usbdir/Data/$other-to-$this/todelete"
+cat $todeletefile > /tmp/temp.txt
+find $localdir/Recv/* -type f 2> /dev/null | sort | \
+cut -c $(( ${#localdir} + 7 ))- > $todeletefile     # From all the files present,
+echo "$(diff "$todeletefile" "/tmp/temp.txt" | \
+grep -oP "^< \K.*")" > "/tmp/temp.txt"              # remove files that are acknowledged.
+while read -r dir ; do                              # For each file in /tmp/temp.txt,
+    if [ -f "$localdir/Recv/$dir" ]; then           # if the file exists in local dir,
+    echo "$(date +"[%b%d %T]") RECV: $dir" \
+    >> "$localdir/History"; fi                      # append it's name to history.
+done < "/tmp/temp.txt"
+echo "Data transfer done..."
+
+until umount -q $1; do sleep 1; done                # Unmount the USB device.
+udisksctl power-off -b $1                           # Disconnect the USB device.
+rm -df $usbdir                                      # Remove mount point directory.
+echo "USB device Disconnected"
+
+echo "$(( $(date +%s) - s ))s elapsed"
+echo "==================\e[1;32m Process Done \e[0m==================="
