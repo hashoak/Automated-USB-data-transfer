@@ -1,7 +1,0 @@
-[Unit]
-Description=Data exchange with USB drive
-BindsTo=dev-%i.device
-
-[Service]
-Type=simple
-ExecStart=/usr/local/bin/usb.sh /dev/%I

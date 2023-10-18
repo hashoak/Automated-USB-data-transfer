@@ -1,1 +1,0 @@
-ACTION=="add", KERNEL=="sd[a-z]1", ENV{ID_SERIAL}=="SERIALID", RUN+="/usr/bin/systemctl --no-block start usb@%k.service"

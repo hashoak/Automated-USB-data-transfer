@@ -35,7 +35,7 @@ cserial=$(dmidecode -s chassis-serial-number)
 
 echo "Creating data files..."
 mkdir -pm 777 "$localdir/Send"              # Create local send and
-mkdir -pm 777 "$localdir/Recv"              # recieve directories.
+mkdir -pm 777 "$localdir/Recv"              # receive directories.
 touch "$localdir/History"                   # Create history file.
 mkdir -p "$usbdir/Data/1-to-2"              # Make this PC to other PC dir
 mkdir -p "$usbdir/Data/2-to-1"              # and other PC to this PC dir.
@@ -56,7 +56,7 @@ fi
 
 if [ ! -f "$usbconf" ]; then                # If config file doesn't exist,
     echo "USB config file created..."       # create one and put default
-    echo "timeout=60" > $usbconf            # timeout value of 60 sec.
+    echo "timeout=120" > $usbconf           # timeout value of 2 minutes.
 else
     echo "USB config file found..."
 fi
@@ -84,12 +84,14 @@ systemctl daemon-reload                             # Reload Systemd
 
 if ! command -v rsync > /dev/null; then             # Install rsync command
     echo "Installing rsync..."                      # if not existing.
-    dpkg -i rsync_3.1.3-6_amd64.deb > /dev/null
+    apt-get install rsync > /dev/null 2>&1 || \
+    dpkg -i rsync_3.1.3-6_amd64.deb > /dev/null     # If no internet
 fi
 
 if ! command -v nocache > /dev/null; then           # Install nocache command
     echo "Installing nocache..."                    # if not existing.
-    dpkg -i nocache_1.1-1_amd64.deb > /dev/null
+    apt-get install nocache > /dev/null 2>&1 || \
+    dpkg -i nocache_1.1-1_amd64.deb > /dev/null     # If no internet
 fi
 
 echo "=================\e[1;32m Setup Successful \e[0m================"

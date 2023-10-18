@@ -1,9 +1,0 @@
-[Unit]
-Description="Data exchange with USB drive"
-After=dev-%i.device
-
-[Service]
-ExecStart=/usr/bin/nocache /usr/local/bin/usb.sh /dev/%I
-
-[Install]
-WantedBy=multi-user.target
