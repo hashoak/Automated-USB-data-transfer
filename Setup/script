@@ -32,8 +32,17 @@ echo "USB device location: $1"
 echo "Local directory: $localdir"
 echo "USB directory: $usbdir"
 
-# echo "Running Anti Virus check..."
-# clamscan -ri --bell $usbdir             # Virus scan on USB
+echo "Running Anti Virus check..."
+if ! command -v clamscan > /dev/null; then
+    clamscan -ri --bell $usbdir                         # Use ClamAV
+elif cd /usr/lib/Seqrite/Seqrite 2> /dev/null; then
+    printf "1\n2\n$usbdir\nY\n24\n" | ./qhavcli \
+    1>/tmp/usb 2> /dev/null                             # Use Seqrite
+    cd
+    grep -A12 "Scan Summary" /tmp/usb
+else
+    echo "No anti virus software found"                 # No AV found
+fi
 
 if [ ! -f "$usbdir/Data/conf" ] || [ ! -d "$usbdir/Data/1-to-2" ] || \
 [ ! -d "$usbdir/Data/2-to-1" ]; then
